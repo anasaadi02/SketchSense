@@ -1,14 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
+import { predictDrawing, checkHealth } from './services/api'
 
 function App() {
   const [gameStarted, setGameStarted] = useState(false)
   const [secretWord, setSecretWord] = useState<string>('')
   const [aiGuess, setAiGuess] = useState<string>('')
   const [isDrawing, setIsDrawing] = useState(false)
+  const [isPredicting, setIsPredicting] = useState(false)
+  const [apiHealth, setApiHealth] = useState<boolean>(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const predictionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const words = ['cat', 'dog', 'house', 'tree', 'car', 'sun', 'moon', 'star', 'bird', 'fish']
 
@@ -33,6 +37,22 @@ function App() {
         canvas.width = canvas.offsetWidth
         canvas.height = canvas.offsetHeight
       }
+    }
+  }, [gameStarted])
+
+  useEffect(() => {
+    const checkApi = async () => {
+      try {
+        const health = await checkHealth()
+        setApiHealth(health.model_loaded)
+      } catch (error) {
+        console.error('API health check failed:', error)
+        setApiHealth(false)
+      }
+    }
+    
+    if (gameStarted) {
+      checkApi()
     }
   }, [gameStarted])
 
@@ -62,10 +82,39 @@ function App() {
     
     ctx.lineTo(x, y)
     ctx.stroke()
+
+    debouncedPrediction()
   }
   
   const stopDrawing = () => {
     setIsDrawing(false)
+  }
+
+  const runPrediction = async () => {
+    if (!canvasRef.current || !apiHealth) return
+    
+    setIsPredicting(true)
+    try {
+      const result = await predictDrawing(canvasRef.current)
+      if (result.top_guess) {
+        setAiGuess(result.top_guess.word)
+      }
+    } catch (error) {
+      console.error('Prediction error:', error)
+      setAiGuess('Error predicting')
+    } finally {
+      setIsPredicting(false)
+    }
+  }
+  
+  const debouncedPrediction = () => {
+    if (predictionTimeoutRef.current) {
+      clearTimeout(predictionTimeoutRef.current)
+    }
+    
+    predictionTimeoutRef.current = setTimeout(() => {
+      runPrediction()
+    }, 1000)
   }
 
   return (
@@ -93,7 +142,15 @@ function App() {
       <h2>Draw: <span className="secret-word">{secretWord}</span></h2>
     </div>
     <div className="ai-guess-display">
-      <p>{aiGuess ? `Is it a ${aiGuess}?` : 'AI is thinking...'}</p>
+      {!apiHealth ? (
+        <p style={{ color: 'red' }}>API not connected</p>
+      ) : isPredicting ? (
+        <p>AI is analyzing...</p>
+      ) : aiGuess ? (
+        <p>Is it a <strong>{aiGuess}</strong>?</p>
+      ) : (
+        <p>Start drawing and AI will guess...</p>
+      )}
     </div>
   </div>
   
@@ -121,10 +178,19 @@ function App() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
       }
     }}>Clear</button>
-    <button onClick={() => {
-      // Submit drawing for AI analysis (to be implemented)
-      // For now, just simulate an AI guess
-      setAiGuess('cat')
+    <button onClick={async () => {
+      if (!canvasRef.current) return
+      setIsPredicting(true)
+      try {
+        const result = await predictDrawing(canvasRef.current)
+        if (result.top_guess) {
+          setAiGuess(result.top_guess.word)
+        }
+      } catch (error) {
+        console.error('Prediction error:', error)
+      } finally {
+        setIsPredicting(false)
+      }
     }}>Submit</button>
   </div>
   </div>

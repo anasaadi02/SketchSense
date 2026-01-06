@@ -3,12 +3,16 @@ import numpy as np
 from PIL import Image
 import io
 import base64
+import os
+import json
 
 class DrawingModel:
     def __init__(self, model_path='models/drawing_model.h5'):
         self.model = None
         self.model_path = model_path
-        self.word_list = ['cat', 'dog', 'house', 'tree', 'car', 'sun', 'moon', 'star', 'bird', 'fish']  # Your word list (345 words for QuickDraw)
+        self.word_list = []
+        self.class_names_path = 'models/class_names.json'
+        self.load_word_list()  # Load first
         self.load_model()
     
     def load_model(self):
@@ -22,9 +26,20 @@ class DrawingModel:
             print(f"Error loading model: {e}")
     
     def load_word_list(self):
-        """Load the list of words the model can predict"""
-        # You can load from a file or define here
-        self.word_list = ['cat', 'dog', 'house', 'tree', 'car', ...]  # 345 words
+        """Load word list from JSON file or use default"""
+        try:
+            if os.path.exists(self.class_names_path):
+                with open(self.class_names_path, 'r') as f:
+                    self.word_list = json.load(f)
+                print(f"Loaded {len(self.word_list)} classes from {self.class_names_path}")
+            else:
+                # Fallback to default list
+                self.word_list = ['cat', 'dog', 'house', 'tree', 'car', 
+                                 'sun', 'moon', 'star', 'bird', 'fish']
+                print("Using default word list")
+        except Exception as e:
+            print(f"Error loading word list: {e}")
+            self.word_list = ['cat', 'dog', 'house', 'tree', 'car', 'sun', 'moon', 'star', 'bird', 'fish', 'apple', 'banana', 'airplane', 'bicycle', 'book', 'clock', 'cloud', 'flower', 'heart', 'key']
     
     def preprocess_image(self, image_data):
         """

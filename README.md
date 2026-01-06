@@ -50,8 +50,14 @@ SketchSense/
 ├── backend/               # FastAPI backend
 │   ├── app.py            # FastAPI application
 │   ├── model_service.py  # ML model service
-│   ├── requirements.txt   # Python dependencies
-│   └── models/           
+│   ├── train_model.py    # Model training script
+│   ├── download_data.py  # QuickDraw data downloader
+│   ├── requirements.txt  # Python dependencies
+│   ├── models/           # Trained model files
+│   │   ├── drawing_model.h5
+│   │   └── class_names.json
+│   └── data/             # Training data (not in git)
+│       └── quickdraw/    # QuickDraw dataset files           
 │
 └── README.md
 ```
@@ -109,6 +115,68 @@ npm run dev
 
 The frontend will be available at http://localhost:5173 (or another port if 5173 is busy)
 
+## 🤖 Training Your Own Model
+
+The project includes scripts to train a custom drawing recognition model using the QuickDraw dataset.
+
+### Step 1: Download Training Data
+
+```bash
+cd backend
+python download_data.py
+```
+
+This downloads the QuickDraw dataset for the categories defined in the script (default: 20 categories including cat, dog, house, tree, car, etc.).
+
+**Note**: The data folder is excluded from git. Downloaded files will be saved to `backend/data/quickdraw/`.
+
+### Step 2: Train the Model
+
+```bash
+cd backend
+python train_model.py
+```
+
+This will:
+- Load and preprocess the QuickDraw data
+- Create a CNN model architecture
+- Train the model with data augmentation
+- Save the best model to `backend/models/drawing_model.h5`
+- Save class names to `backend/models/class_names.json`
+
+### Training Configuration
+
+You can customize training by editing `train_model.py`:
+
+- **Categories**: Modify `QUICKDRAW_CATEGORIES` in `download_data.py`
+- **Samples per class**: Adjust `MAX_SAMPLES_PER_CLASS` (default: 10,000)
+- **Epochs**: Change `EPOCHS` (default: 50)
+- **Batch size**: Modify `BATCH_SIZE` (default: 32)
+- **Learning rate**: Adjust `LEARNING_RATE` (default: 0.001)
+
+### Model Architecture
+
+The model uses a CNN architecture with:
+- 3 convolutional blocks with batch normalization
+- Dropout layers for regularization
+- Dense layers for classification
+- Softmax output for multi-class prediction
+
+### Training Tips
+
+- **Start small**: Test with 5-10 categories first
+- **Use GPU**: Training is much faster with GPU (TensorFlow will auto-detect)
+- **Monitor overfitting**: Watch validation vs training accuracy
+- **Adjust hyperparameters**: Experiment with learning rate and batch size
+
+### After Training
+
+Once training completes:
+1. The model will be saved to `backend/models/drawing_model.h5`
+2. Class names will be saved to `backend/models/class_names.json`
+3. Restart the backend server to load the new model
+4. The model will automatically be used for predictions
+
 ## 📡 API Endpoints
 
 ### `GET /health`
@@ -157,15 +225,18 @@ Predict what the drawing represents.
 - ✅ Backend API setup
 - ✅ Frontend-backend integration
 - ✅ Real-time predictions (debounced)
-- ⏳ **Model Training/Integration** (in progress - needs trained model file)
+- ✅ Model training scripts (download_data.py, train_model.py)
+- ⏳ **Model Training** (ready to train - run training scripts)
 
 ## 📝 Notes
 
-- The backend currently expects a trained model at `backend/models/drawing_model.h5`
-- You'll need to either:
-  - Download a pre-trained QuickDraw model
-  - Train your own model using the QuickDraw dataset
-  - Use a mock model for testing (see backend code)
+- **Model Location**: The backend expects a trained model at `backend/models/drawing_model.h5`
+- **Training Data**: The `backend/data/` folder is excluded from git (see `.gitignore`)
+- **Training Options**:
+  - Use the provided training scripts to train your own model (recommended)
+  - Download a pre-trained QuickDraw model and place it in `backend/models/`
+  - The model service will create a mock model if no trained model is found (for testing only)
+- **Class Names**: After training, class names are automatically saved and loaded from `backend/models/class_names.json`
 
 ## 🔮 Future Enhancements
 
